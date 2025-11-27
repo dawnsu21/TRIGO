@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'fare' => [
+        'base'   => env('FARE_BASE', 20),
+        'per_km' => env('FARE_PER_KM', 5),
+    ],
+
 ];

@@ -97,6 +97,8 @@ return [
 
     'cipher' => 'AES-256-CBC',
 
+    'admin_email' => env('ADMIN_EMAIL', 'admin@trigo.test'),
+
     'key' => env('APP_KEY'),
 
     'previous_keys' => [
