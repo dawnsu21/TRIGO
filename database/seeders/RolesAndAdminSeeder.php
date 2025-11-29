@@ -19,8 +19,13 @@ class RolesAndAdminSeeder extends Seeder
         foreach ($roles as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
+        
+        // Also create roles for sanctum guard (API authentication)
+        foreach ($roles as $role) {
+            Role::firstOrCreate(['name' => $role, 'guard_name' => 'sanctum']);
+        }
 
-        $adminEmail = config('app.admin_email', 'admin@trigo.test');
+        $adminEmail = env('ADMIN_EMAIL', 'admin@trigo.test');
 
         $admin = User::firstOrCreate(
             ['email' => $adminEmail],

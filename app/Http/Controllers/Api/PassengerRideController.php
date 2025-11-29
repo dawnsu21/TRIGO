@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Place;
 use App\Models\Ride;
 use Illuminate\Http\Request;
 
@@ -12,38 +13,83 @@ class PassengerRideController extends Controller
     {
         $user = $request->user();
 
+        // Check if passenger has active ride
+        $activeRide = Ride::where('passenger_id', $user->id)
+            ->whereIn('status', [
+                Ride::STATUS_REQUESTED,
+                Ride::STATUS_ASSIGNED,
+                Ride::STATUS_IN_PROGRESS,
+            ])
+            ->first();
+
+        if ($activeRide) {
+            return response()->json([
+                'message' => 'You already have an active ride. Please complete or cancel it first.',
+                'active_ride' => $activeRide->load(['pickupPlace', 'dropoffPlace']),
+            ], 409);
+        }
+
         $validated = $request->validate([
-            'pickup_lat'    => ['required', 'numeric', 'between:-90,90'],
-            'pickup_lng'    => ['required', 'numeric', 'between:-180,180'],
-            'pickup_address'=> ['nullable', 'string', 'max:255'],
-            'drop_lat'      => ['required', 'numeric', 'between:-90,90'],
-            'drop_lng'      => ['required', 'numeric', 'between:-180,180'],
-            'drop_address'  => ['nullable', 'string', 'max:255'],
+            // New: Use places (preferred)
+            'pickup_place_id'  => ['required_without:pickup_lat', 'nullable', 'exists:places,id'],
+            'dropoff_place_id' => ['required_without:drop_lat', 'nullable', 'exists:places,id'],
+            // Legacy: Direct coordinates (for backward compatibility)
+            'pickup_lat'       => ['required_without:pickup_place_id', 'nullable', 'numeric', 'between:-90,90'],
+            'pickup_lng'       => ['required_without:pickup_place_id', 'nullable', 'numeric', 'between:-180,180'],
+            'pickup_address'  => ['nullable', 'string', 'max:255'],
+            'drop_lat'         => ['required_without:dropoff_place_id', 'nullable', 'numeric', 'between:-90,90'],
+            'drop_lng'         => ['required_without:dropoff_place_id', 'nullable', 'numeric', 'between:-180,180'],
+            'drop_address'    => ['nullable', 'string', 'max:255'],
+            'notes'           => ['nullable', 'string', 'max:500'],
         ]);
 
-        $fare = $this->calculateFare(
-            $validated['pickup_lat'],
-            $validated['pickup_lng'],
-            $validated['drop_lat'],
-            $validated['drop_lng']
-        );
+        // Get places if place_ids provided
+        $pickupPlace = null;
+        $dropoffPlace = null;
+        $pickupLat = null;
+        $pickupLng = null;
+        $dropLat = null;
+        $dropLng = null;
+
+        if ($validated['pickup_place_id'] ?? null) {
+            $pickupPlace = Place::findOrFail($validated['pickup_place_id']);
+            $pickupLat = $pickupPlace->latitude;
+            $pickupLng = $pickupPlace->longitude;
+        } else {
+            $pickupLat = $validated['pickup_lat'];
+            $pickupLng = $validated['pickup_lng'];
+        }
+
+        if ($validated['dropoff_place_id'] ?? null) {
+            $dropoffPlace = Place::findOrFail($validated['dropoff_place_id']);
+            $dropLat = $dropoffPlace->latitude;
+            $dropLng = $dropoffPlace->longitude;
+        } else {
+            $dropLat = $validated['drop_lat'];
+            $dropLng = $validated['drop_lng'];
+        }
+
+        $fare = $this->calculateFare($pickupLat, $pickupLng, $dropLat, $dropLng);
 
         $ride = Ride::create([
-            'passenger_id'   => $user->id,
-            'pickup_lat'     => $validated['pickup_lat'],
-            'pickup_lng'     => $validated['pickup_lng'],
-            'pickup_address' => $validated['pickup_address'] ?? null,
-            'drop_lat'       => $validated['drop_lat'],
-            'drop_lng'       => $validated['drop_lng'],
-            'drop_address'   => $validated['drop_address'] ?? null,
-            'fare'           => $fare,
-            'status'         => Ride::STATUS_REQUESTED,
-            'requested_at'   => now(),
+            'passenger_id'     => $user->id,
+            'pickup_place_id' => $pickupPlace?->id,
+            'dropoff_place_id' => $dropoffPlace?->id,
+            'pickup_lat'      => $pickupLat,
+            'pickup_lng'      => $pickupLng,
+            'pickup_address'  => $pickupPlace?->address ?? $validated['pickup_address'] ?? null,
+            'drop_lat'        => $dropLat,
+            'drop_lng'        => $dropLng,
+            'drop_address'    => $dropoffPlace?->address ?? $validated['drop_address'] ?? null,
+            'fare'            => $fare,
+            'notes'           => $validated['notes'] ?? null,
+            'status'          => Ride::STATUS_REQUESTED,
+            'requested_at'    => now(),
         ]);
 
         return response()->json([
             'message' => 'Ride requested. Waiting for nearby driver.',
-            'data'    => $ride,
+            'data'    => $ride->load(['pickupPlace', 'dropoffPlace', 'driver:id,name,email']),
         ], 201);
     }
 
@@ -56,8 +102,22 @@ class PassengerRideController extends Controller
                 Ride::STATUS_IN_PROGRESS,
             ])
             ->latest()
-            ->with('driver:id,name,email')
+            ->with([
+                'driver:id,name,email,phone',
+                'driver.driverProfile:user_id,vehicle_type,plate_number',
+                'pickupPlace',
+                'dropoffPlace',
+            ])
             ->first();
+
+        if (! $ride) {
+            return response()->json(['data' => null], 404);
+        }
+
+        // Format driver info if assigned
+        if ($ride->driver) {
+            $ride->driver->vehicle_type = $ride->driver->driverProfile?->vehicle_type;
+        }
 
         return response()->json(['data' => $ride]);
     }
@@ -67,6 +127,7 @@ class PassengerRideController extends Controller
         $rides = Ride::where('passenger_id', $request->user()->id)
             ->whereIn('status', [Ride::STATUS_COMPLETED, Ride::STATUS_CANCELED])
             ->latest()
+            ->with(['pickupPlace', 'dropoffPlace', 'driver:id,name,email'])
             ->paginate(10);
 
         return response()->json($rides);
@@ -88,7 +149,10 @@ class PassengerRideController extends Controller
             'cancellation_reason' => $request->input('reason'),
         ]);
 
-        return response()->json(['message' => 'Ride canceled.']);
+        return response()->json([
+            'message' => 'Ride cancelled successfully',
+            'ride' => $ride->fresh(['pickupPlace', 'dropoffPlace']),
+        ]);
     }
 
     private function calculateFare(float $pickupLat, float $pickupLng, float $dropLat, float $dropLng): float

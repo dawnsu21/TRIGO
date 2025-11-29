@@ -23,6 +23,7 @@ class DriverProfile extends Model
         'is_online',
         'current_lat',
         'current_lng',
+        'location_updated_at',
         'document_path',
     ];
 
@@ -30,6 +31,7 @@ class DriverProfile extends Model
         'is_online' => 'boolean',
         'current_lat' => 'float',
         'current_lng' => 'float',
+        'location_updated_at' => 'datetime',
     ];
 
     public function user()

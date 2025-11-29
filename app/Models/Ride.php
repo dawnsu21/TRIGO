@@ -18,6 +18,8 @@ class Ride extends Model
     protected $fillable = [
         'passenger_id',
         'driver_id',
+        'pickup_place_id',
+        'dropoff_place_id',
         'pickup_lat',
         'pickup_lng',
         'pickup_address',
@@ -32,6 +34,7 @@ class Ride extends Model
         'completed_at',
         'canceled_at',
         'cancellation_reason',
+        'notes',
     ];
 
     protected $casts = [
@@ -55,6 +58,16 @@ class Ride extends Model
     public function driver()
     {
         return $this->belongsTo(User::class, 'driver_id');
+    }
+
+    public function pickupPlace()
+    {
+        return $this->belongsTo(Place::class, 'pickup_place_id');
+    }
+
+    public function dropoffPlace()
+    {
+        return $this->belongsTo(Place::class, 'dropoff_place_id');
     }
 }
 

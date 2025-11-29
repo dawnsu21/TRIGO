@@ -28,10 +28,12 @@ class RolesAndPermissionsSeeder extends Seeder
         }
 
         // create roles and assign created permissions
-        $userRole = Role::firstOrCreate(['name' => 'user']);
+        // NOTE: This seeder creates 'user' role, but the app uses 'passenger', 'driver', 'admin'
+        // Consider using RolesAndAdminSeeder instead for this application
+        $userRole = Role::firstOrCreate(['name' => 'user', 'guard_name' => 'web']);
         $userRole->givePermissionTo('view profile');
 
-        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $adminRole = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
         // admin gets everything (adjust as you like)
         $adminRole->givePermissionTo(Permission::all());
 

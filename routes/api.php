@@ -5,10 +5,17 @@ use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\PassengerRideController;
+use App\Http\Controllers\Api\PlaceController;
 
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/register/passenger', [AuthController::class, 'registerPassenger']);
-Route::post('/register/driver', [AuthController::class, 'registerDriver']);
+Route::post('/register', [AuthController::class, 'register']); // Unified registration with role
+Route::post('/register/passenger', [AuthController::class, 'registerPassenger']); // Legacy endpoint
+Route::post('/register/driver', [AuthController::class, 'registerDriver']); // Legacy endpoint
+
+// Places endpoints (public for listing, admin for management)
+Route::get('/places', [PlaceController::class, 'index']);
+Route::get('/places/search', [PlaceController::class, 'search']);
+Route::get('/places/{place}', [PlaceController::class, 'show']);
 
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
@@ -36,5 +43,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/drivers', [AdminController::class, 'drivers']);
         Route::post('/drivers/{driverProfile}/status', [AdminController::class, 'updateDriverStatus']);
         Route::get('/rides', [AdminController::class, 'rides']);
+        
+        // Places management (Admin only)
+        Route::post('/places', [PlaceController::class, 'store']);
+        Route::put('/places/{place}', [PlaceController::class, 'update']);
+        Route::delete('/places/{place}', [PlaceController::class, 'destroy']);
     });
 });
