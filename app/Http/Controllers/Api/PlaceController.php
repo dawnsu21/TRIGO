@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 class PlaceController extends Controller
 {
     /**
-     * Get all active places
+     * Get all active places (Public)
      */
     public function index(Request $request)
     {
@@ -30,6 +30,34 @@ class PlaceController extends Controller
         return response()->json([
             'data' => $places,
         ]);
+    }
+
+    /**
+     * Get all places including inactive (Admin only)
+     */
+    public function adminIndex(Request $request)
+    {
+        $query = Place::query();
+
+        // Filter by category
+        if ($request->has('category')) {
+            $query->byCategory($request->category);
+        }
+
+        // Filter by active status
+        if ($request->has('is_active')) {
+            $query->where('is_active', $request->boolean('is_active'));
+        }
+
+        // Search
+        if ($request->has('q') && ! empty($request->q)) {
+            $query->search($request->q);
+        }
+
+        $places = $query->orderBy('name')
+            ->paginate($request->input('per_page', 20));
+
+        return response()->json($places);
     }
 
     /**

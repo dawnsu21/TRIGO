@@ -16,13 +16,9 @@ class RolesAndAdminSeeder extends Seeder
     {
         $roles = ['admin', 'driver', 'passenger'];
 
+        // Create roles with web guard (works for both web and API)
         foreach ($roles as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
-        }
-        
-        // Also create roles for sanctum guard (API authentication)
-        foreach ($roles as $role) {
-            Role::firstOrCreate(['name' => $role, 'guard_name' => 'sanctum']);
         }
 
         $adminEmail = env('ADMIN_EMAIL', 'admin@trigo.test');
@@ -35,6 +31,7 @@ class RolesAndAdminSeeder extends Seeder
             ]
         );
 
+        // Assign admin role (using web guard - works for both web and API)
         if (! $admin->hasRole('admin')) {
             $admin->assignRole('admin');
         }

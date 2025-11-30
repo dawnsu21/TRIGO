@@ -57,6 +57,7 @@ class AuthController extends Controller
             'password' => Hash::make($validated['password']),
         ]);
 
+        // Assign role (using web guard - works for both web and API)
         $user->assignRole('passenger');
 
         $token = $user->createToken('apiToken')->plainTextToken;
@@ -120,6 +121,7 @@ class AuthController extends Controller
                 'password' => Hash::make($validated['password']),
             ]);
 
+            // Assign role (using web guard - works for both web and API)
             $newUser->assignRole('driver');
 
             DriverProfile::create([
@@ -149,24 +151,19 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $validated = $request->validate([
-            'email'       => ['nullable', 'email'],
-            'identifier'  => ['nullable', 'string'],
+            'email'       => ['required', 'email'],
             'password'    => ['required', 'string'],
             'device_name' => ['nullable', 'string'],
         ]);
 
-        if (! $validated['email'] && ! $validated['identifier']) {
-            throw ValidationException::withMessages([
-                'email' => ['Provide either an email or username.'],
-            ]);
+        // Case-insensitive email lookup
+        $user = User::whereRaw('LOWER(email) = ?', [strtolower($validated['email'])])->first();
+
+        if (! $user) {
+            return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
-        $loginValue = strtolower(trim($validated['email'] ?? $validated['identifier']));
-        $user = User::whereRaw('LOWER(email) = ?', [$loginValue])
-            ->orWhereRaw('LOWER(name) = ?', [$loginValue])
-            ->first();
-
-        if (! $user || ! Hash::check($validated['password'], $user->password)) {
+        if (! Hash::check($validated['password'], $user->password)) {
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 

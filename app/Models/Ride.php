@@ -10,7 +10,8 @@ class Ride extends Model
     use HasFactory;
 
     public const STATUS_REQUESTED = 'requested';
-    public const STATUS_ASSIGNED = 'assigned';
+    public const STATUS_ASSIGNED = 'assigned'; // Passenger selected driver, but driver hasn't accepted yet
+    public const STATUS_ACCEPTED = 'accepted'; // Driver accepted the ride
     public const STATUS_IN_PROGRESS = 'in_progress';
     public const STATUS_COMPLETED = 'completed';
     public const STATUS_CANCELED = 'canceled';
@@ -34,6 +35,9 @@ class Ride extends Model
         'completed_at',
         'canceled_at',
         'cancellation_reason',
+        'driver_declined_at',
+        'declined_by_driver_id',
+        'decline_reason',
         'notes',
     ];
 
@@ -47,6 +51,7 @@ class Ride extends Model
         'picked_up_at' => 'datetime',
         'completed_at' => 'datetime',
         'canceled_at' => 'datetime',
+        'driver_declined_at' => 'datetime',
         'fare' => 'float',
     ];
 

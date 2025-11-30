@@ -57,4 +57,29 @@ class User extends Authenticatable
     {
         return $this->hasMany(Ride::class, 'driver_id');
     }
+
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class);
+    }
+
+    public function unreadNotifications()
+    {
+        return $this->hasMany(Notification::class)->where('is_read', false);
+    }
+
+    public function feedbacksGiven()
+    {
+        return $this->hasMany(Feedback::class, 'from_user_id');
+    }
+
+    public function feedbacksReceived()
+    {
+        return $this->hasMany(Feedback::class, 'to_user_id');
+    }
+
+    public function emergencies()
+    {
+        return $this->hasMany(Emergency::class);
+    }
 }

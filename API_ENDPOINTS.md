@@ -269,35 +269,81 @@ Authorization: Bearer {token}
 ---
 
 ### 9. Cancel Ride
-**POST** `/api/passenger/rides/{rideId}/cancel`
+**POST** `/api/passenger/rides/{ride}/cancel`
 
-Cancel a requested or assigned ride.
+Cancel a requested, assigned, or accepted ride (before driver picks up passenger).
 
 **Headers:**
 ```
 Authorization: Bearer {token}
+Content-Type: application/json
 ```
+
+**URL Parameters:**
+- `{ride}` - The ride ID (integer)
 
 **Request Body:**
 ```json
 {
-  "reason": "Changed my mind"  // Optional
+  "reason": "Changed my mind"  // Optional, max 500 characters
 }
 ```
 
-**Response (200):**
+**Response (200) - Success:**
 ```json
 {
-  "message": "Ride canceled."
+  "message": "Ride cancelled successfully",
+  "data": {
+    "ride": {
+      "id": 1,
+      "status": "canceled",
+      "passenger_id": 3,
+      "driver_id": 5,
+      "fare": 45.50,
+      "canceled_at": "2025-01-15T10:45:00.000000Z",
+      "cancellation_reason": "Changed my mind",
+      "pickupPlace": {...},
+      "dropoffPlace": {...},
+      "driver": {...}
+    },
+    "status": "canceled",
+    "status_label": "Canceled",
+    "canceled_at": "2025-01-15T10:45:00.000000Z"
+  }
 }
 ```
 
-**Error (422):**
+**Error (403) - Not Owner:**
 ```json
 {
-  "message": "Ride can no longer be canceled."
+  "message": "You can only cancel your own rides.",
+  "error": "unauthorized"
 }
 ```
+
+**Error (422) - Cannot Cancel:**
+```json
+{
+  "message": "Ride can no longer be canceled.",
+  "current_status": "in_progress",
+  "status_label": "In Progress",
+  "can_cancel": false,
+  "reason": "Ride is already in progress. Driver has picked up the passenger."
+}
+```
+
+**Error (404) - Ride Not Found:**
+```json
+{
+  "message": "No query results for model [App\\Models\\Ride] {ride_id}"
+}
+```
+
+**Notes:**
+- Rides can only be canceled if status is: `requested`, `assigned`, or `accepted`
+- Once driver picks up passenger (status = `in_progress`), cancellation is not allowed
+- The `reason` field is optional but recommended for tracking
+- Cancellation automatically notifies the passenger
 
 ---
 
